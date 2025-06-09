@@ -1,0 +1,11 @@
+https://api-sg.aliexpress.com/oauth/authorize?response_type=code&client_id=512684&redirect_uri=https://www.tolastore.com/auth-redirect/auth/redirect&client_id=512684
+
+code=3_512684 this from AliExpress
+
+https://api-sg.aliexpress.com/oauth/authorize?response_type=code&force_auth=true&redirect_uri=https://https://www.tolastore.com/auth-redirect
+/redirect&client_id=512684
+
+
+https://www.tolastore.com/auth-redirect/auth/redirect?code=3_512684_itiNcaT0DrUHtRT1YQn4f0xt14649
+
+cd D:\Cursor\AliExpress Dropshipping Project
