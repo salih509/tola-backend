@@ -1,58 +1,58 @@
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
-const app = express();
+require('dotenv').config();
 
+const app = express();
 const PORT = process.env.PORT || 5050;
 
-// AliExpress API credentials
-const appKey = '512684';
-const appSecret = '1Ks2k6EOqIviirghk3gxBFp9vCFgs17';
-const accessToken = '50000300c06uKmAmwo1370035aUEeZgWekuhxPf6jiP5sTUcjjtJ0muvjGr6AvIhXnCq';
+// AliExpress credentials
+const appKey = '512684'; // Replace with your real appKey
+const appSecret = '1Ks2k6EOqIviirghk3gxBFp9vCFgs17'; // Replace with your real appSecret
+const accessToken = '50000300c06uKmAmwo1370035aUEeZgWekuhxPf6jiP5sTUcjjtJ0muvjGr6AvIhXnCq'; // Use your token
 
-// Signature generation function
-function generateSignature(params, secret) {
-    const sortedKeys = Object.keys(params).sort();
-    let baseString = secret;
-    for (const key of sortedKeys) {
-        baseString += key + params[key];
-    }
-    baseString += secret;
+// Generate MD5 signature
+function generateSign(params, appSecret) {
+    // Step 1: Sort parameters
+    const sorted = Object.keys(params).sort().map(key => `${key}${params[key]}`).join('');
+    
+    // Step 2: Concatenate with secret
+    const signString = appSecret + sorted + appSecret;
 
-    return crypto.createHash('md5').update(baseString, 'utf8').digest('hex').toUpperCase();
+    // Step 3: MD5 hash and toUpperCase
+    return crypto.createHash('md5').update(signString).digest('hex').toUpperCase();
 }
 
-// AliExpress products API endpoint
 app.get('/products', async (req, res) => {
+    const timestamp = Date.now();
+
     const params = {
         app_key: appKey,
         access_token: accessToken,
-        sign_method: 'md5',
-        timestamp: Date.now().toString(),
-        v: '2.0',
-        page_no: '1',
-        page_size: '10'
+        timestamp: timestamp,
+        sign_method: 'md5'
     };
 
-    const sign = generateSignature(params, appSecret);
-    const query = new URLSearchParams({ ...params, sign }).toString();
+    // Generate signature
+    const sign = generateSign(params, appSecret);
+    const fullParams = {
+        ...params,
+        sign: sign
+    };
 
-    const url = `https://api-sg.aliexpress.com/openapi/param2/2/syncAPI/seller/api/v1/productList/${appKey}?${query}`;
+    const queryString = Object.entries(fullParams).map(([k, v]) => `${k}=${v}`).join('&');
+
+    const url = `https://api-sg.aliexpress.com/syncAPI/seller/api/v1/productList?${queryString}`;
 
     try {
         const response = await axios.get(url);
         res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: error.message, detail: error.response?.data });
+    } catch (err) {
+        console.error('API call failed:', err.response?.data || err.message);
+        res.status(500).json({ error: err.response?.data || err.message });
     }
 });
 
-// Root route
-app.get('/', (req, res) => {
-    res.send('AliExpress backend is running and ready!');
-});
-
-// Start server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
 });
