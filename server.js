@@ -1,54 +1,40 @@
 const express = require('express');
-const crypto = require('crypto');
+const cors = require('cors');
 const axios = require('axios');
+const crypto = require('crypto');
 require('dotenv').config();
 
+const { APP_KEY, APP_SECRET, ACCESS_TOKEN } = process.env;
 const app = express();
-const PORT = process.env.PORT || 5050;
+app.use(cors()); // allow calls from Wix frontend
 
-const APP_KEY = process.env.APP_KEY;
-const APP_SECRET = process.env.APP_SECRET;
-const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-
-function generateSignature(params, appSecret) {
-    const sortedKeys = Object.keys(params).sort();
-    let baseString = appSecret;
-
-    for (const key of sortedKeys) {
-        baseString += key + params[key];
-    }
-    baseString += appSecret;
-
-    return crypto.createHash('sha256').update(baseString).digest('hex').toUpperCase();
+function makeSignature(params) {
+  const sorted = Object.keys(params).sort()
+    .map(k => `${k}${params[k]}`).join('');
+  const base = APP_SECRET + sorted + APP_SECRET;
+  return crypto.createHash('md5').update(base).digest('hex').toUpperCase();
 }
 
 app.get('/products', async (req, res) => {
-    const timestamp = Date.now().toString();
-
-    const params = {
-        app_key: APP_KEY,
-        access_token: ACCESS_TOKEN,
-        timestamp: timestamp,
-        sign_method: 'sha256',
-    };
-
-    const signature = generateSignature(params, APP_SECRET);
-
-    const url = `https://api-sg.aliexpress.com/sync?method=api.v1.productList` +
-                `&app_key=${APP_KEY}` +
-                `&access_token=${ACCESS_TOKEN}` +
-                `&timestamp=${timestamp}` +
-                `&sign_method=sha256` +
-                `&sign=${signature}`;
-
-    try {
-        const response = await axios.get(url);
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: error.toString() });
-    }
+  const timestamp = Date.now();
+  const params = {
+    app_key: APP_KEY,
+    access_token: ACCESS_TOKEN,
+    timestamp: timestamp,
+    sign_method: 'md5',
+    // business params:
+    page_size: '10',
+    page: '1'
+  };
+  params.sign = makeSignature(params);
+  try {
+    const url = 'https://api-sg.aliexpress.com/sync?method=aliexpress.seller.product.getList.';  // example
+    const { data } = await axios.get(url, { params });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message, detail: e.response?.data });
+  }
 });
 
-app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, () => console.log(`Server up on port ${PORT}`));
